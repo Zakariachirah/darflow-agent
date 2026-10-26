@@ -32,7 +32,7 @@ const server = http.createServer(async (req, res) => {
       const raw = await readBody(req);
       if (!wa.validSignature(raw, req.headers['x-hub-signature-256'])) { res.writeHead(401); return res.end(); }
       res.writeHead(200); res.end(); // acknowledge fast, process after
-      for (const m of wa.parseWebhook(JSON.parse(raw.toString('utf8') || '{}'))) handleInbound(m);
+      for (const m of wa.parseWebhook(JSON.parse(raw.toString('utf8') || '{}'))) handleInbound(m).catch((e) => console.error('inbound failed:', e.message));
       return;
     }
     // ---- simulator & manager tools: local machine only ----
@@ -63,6 +63,10 @@ const server = http.createServer(async (req, res) => {
 server.listen(config.port, '127.0.0.1', () => {
   console.log(`DarFlow Agent on http://127.0.0.1:${config.port}  (WhatsApp ${config.whatsapp.token ? 'LIVE' : 'simulator'})`);
 });
+
+// One failed WhatsApp call (expired token, missing permission, network) must never stop the agent.
+process.on('unhandledRejection', (e) => { console.error('⚠️ ', e?.message || e); store.log('error', { message: String(e?.message || e) }); });
+process.on('uncaughtException', (e) => { console.error('⚠️ ', e?.message || e); store.log('error', { message: String(e?.message || e) }); });
 
 // Daily pre-arrival outreach at 10:00 local time (checks every 15 minutes).
 setInterval(async () => {
