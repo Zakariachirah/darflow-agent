@@ -15,15 +15,37 @@ await import('../src/server.js');
 
 const exe = process.platform === 'win32' ? 'cloudflared.exe' : 'cloudflared';
 const bin = process.env.CLOUDFLARED || [path.join(ROOT, 'bin', exe)].find((p) => fs.existsSync(p)) || exe;
-const cf = spawn(bin, ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${config.port}`], { stdio: ['ignore', 'pipe', 'pipe'] });
-cf.on('error', (e) => { console.error(`Cannot start cloudflared (${bin}): ${e.message}`); process.exit(1); });
-process.on('SIGINT', () => { cf.kill(); process.exit(0); });
 
-const url = await new Promise((resolve, reject) => {
-  const t = setTimeout(() => reject(new Error('no tunnel URL after 60 s')), 60_000);
-  const scan = (d) => { const m = String(d).match(/https:\/\/[a-z0-9-]+\.trycloudflare\.com/); if (m) { clearTimeout(t); resolve(m[0]); } };
-  cf.stdout.on('data', scan); cf.stderr.on('data', scan);
-});
+// Quick tunnels are free and occasionally fail to start: retry a few times, and never mistake
+// cloudflared's own API address (api.trycloudflare.com, printed in its errors) for the tunnel.
+let cf;
+function openTunnel() {
+  return new Promise((resolve, reject) => {
+    cf = spawn(bin, ['tunnel', '--no-autoupdate', '--url', `http://127.0.0.1:${config.port}`], { stdio: ['ignore', 'pipe', 'pipe'] });
+    const errors = [];
+    const t = setTimeout(() => { cf.kill(); reject(new Error(errors.slice(-3).join(' | ') || 'no tunnel URL after 45 s')); }, 45_000);
+    const scan = (d) => {
+      const s = String(d);
+      for (const line of s.split('\n')) if (/\b(ERR|error|failed)\b/i.test(line)) errors.push(line.trim().slice(0, 200));
+      const m = s.match(/https:\/\/(?!api\.)[a-z0-9-]+\.trycloudflare\.com/);
+      if (m) { clearTimeout(t); resolve(m[0]); }
+    };
+    cf.stdout.on('data', scan); cf.stderr.on('data', scan);
+    cf.on('error', (e) => { clearTimeout(t); reject(new Error(`cannot start cloudflared (${bin}): ${e.message}`)); });
+    cf.on('exit', (code) => { clearTimeout(t); reject(new Error(errors.slice(-3).join(' | ') || `cloudflared exited (${code})`)); });
+  });
+}
+process.on('SIGINT', () => { cf?.kill(); process.exit(0); });
+
+let url;
+for (let attempt = 1; !url; attempt++) {
+  try { url = await openTunnel(); }
+  catch (e) {
+    console.error(`Tunnel attempt ${attempt} failed: ${e.message}`);
+    if (attempt >= 4) { console.error('Cloudflare quick tunnel unavailable right now. Try again in a few minutes.'); process.exit(1); }
+    await new Promise((r) => setTimeout(r, 5000 * attempt));
+  }
+}
 const callback = `${url}/webhook`;
 console.log('Tunnel:', url);
 
@@ -33,7 +55,7 @@ for (let i = 0; ; i++) {
     const r = await fetch(`${callback}?hub.mode=subscribe&hub.verify_token=${encodeURIComponent(w.verifyToken)}&hub.challenge=ping`);
     if ((await r.text()) === 'ping') break;
   } catch {}
-  if (i > 30) { console.error('Tunnel not reachable.'); process.exit(1); }
+  if (i > 45) { console.error('Tunnel not reachable (DNS not ready). Close this window and run go-live.cmd again.'); process.exit(1); }
   await new Promise((r) => setTimeout(r, 2000));
 }
 
