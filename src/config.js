@@ -42,6 +42,8 @@ export const config = {
     appSecret: env('WHATSAPP_APP_SECRET'),
     graphVersion: env('WHATSAPP_GRAPH_VERSION', 'v23.0'),
     checkinTemplate: env('WHATSAPP_CHECKIN_TEMPLATE', ''),
+    appId: env('WHATSAPP_APP_ID'),
+    businessAccountId: env('WHATSAPP_BUSINESS_ACCOUNT_ID'),
   },
   // Riad profile: private real file if present, otherwise the public demo riad.
   profileFile: env('RIAD_PROFILE', fs.existsSync(path.join(ROOT, 'private', 'riad-profile.md'))

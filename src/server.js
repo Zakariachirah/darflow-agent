@@ -16,7 +16,9 @@ function readBody(req, limit = 25 * 1024 * 1024) {
   });
 }
 const json = (res, code, obj) => { res.writeHead(code, { 'Content-Type': 'application/json; charset=utf-8' }); res.end(JSON.stringify(obj)); };
-const localOnly = (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress);
+// A tunnel (cloudflared) connects from localhost too: anything carrying proxy headers is remote.
+const localOnly = (req) => ['127.0.0.1', '::1', '::ffff:127.0.0.1'].includes(req.socket.remoteAddress)
+  && !req.headers['cf-connecting-ip'] && !req.headers['x-forwarded-for'];
 
 const server = http.createServer(async (req, res) => {
   const url = new URL(req.url, 'http://x');
@@ -58,7 +60,7 @@ const server = http.createServer(async (req, res) => {
   }
 });
 
-server.listen(config.port, () => {
+server.listen(config.port, '127.0.0.1', () => {
   console.log(`DarFlow Agent on http://127.0.0.1:${config.port}  (WhatsApp ${config.whatsapp.token ? 'LIVE' : 'simulator'})`);
 });
 
