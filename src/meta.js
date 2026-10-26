@@ -2,7 +2,19 @@
 import fs from 'node:fs';
 import { config, assertMetaKey } from './config.js';
 
-export async function post(pathname, body, { timeoutMs = 90_000 } = {}) {
+// Network hiccups (Wi-Fi drop, DNS miss, 429/5xx) are retried; a 4xx answer is final.
+export async function post(pathname, body, opts = {}) {
+  for (let attempt = 1; ; attempt++) {
+    try { return await postOnce(pathname, body, opts); }
+    catch (e) {
+      const transient = !e.status || e.status === 429 || e.status >= 500;
+      if (!transient || attempt >= 4) throw e;
+      await new Promise((r) => setTimeout(r, 1500 * attempt));
+    }
+  }
+}
+
+async function postOnce(pathname, body, { timeoutMs = 90_000 } = {}) {
   assertMetaKey();
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
