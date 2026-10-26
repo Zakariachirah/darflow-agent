@@ -74,12 +74,18 @@ const VOICE_SCHEMA = {
 export async function readExpenseText(text) {
   const today = new Date().toISOString().slice(0, 10);
   const r = await structured({
-    instructions: `Today is ${today}. A riad employee in Morocco describes a purchase, often in Darija (Moroccan Arabic), French or a mix. Amounts are in dirhams (DH, MAD, "dirham", "drahem"; "rial" may mean 1/20 dirham in Darija: convert only if clearly said). Extract the expense. Never invent prices: if the total cannot be known, set null and list it in missing.`,
+    instructions: `Today is ${today}. A riad employee in Morocco describes a purchase, often in Darija (Moroccan Arabic), French or a mix. Amounts are in dirhams (DH, MAD, "dirham", "drahem"; "rial" may mean 1/20 dirham in Darija: convert only if clearly said). Extract the expense. Write item labels in French (e.g. "bouteille de gaz butane"). Never invent prices: if the total cannot be known, set null and list it in missing.`,
     content: [{ type: 'input_text', text }], schema: VOICE_SCHEMA, name: 'spoken_expense',
   });
   if (r.total == null && r.items.every((i) => i.qty != null && i.unit_price != null) && r.items.length) {
     r.total = Math.round(r.items.reduce((s, i) => s + i.qty * i.unit_price, 0) * 100) / 100;
   }
+  // One item with a known total and quantity: the unit price follows (3 bottles for 120 → 40 each).
+  if (r.total != null && r.items.length === 1 && r.items[0].qty && r.items[0].unit_price == null) {
+    r.items[0].unit_price = Math.round((r.total / r.items[0].qty) * 100) / 100;
+  }
+  // A staff voice note describes a purchase just made: no date said means today.
+  if (!r.date) { r.date = today; r.missing = r.missing.filter((m) => !/date/i.test(m)); }
   return r;
 }
 
