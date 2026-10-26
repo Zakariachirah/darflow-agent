@@ -144,3 +144,20 @@ test('SAM output: boxes parsed, small / unsure / nested boxes dropped, reading o
   const docs = pickDocuments(boxes, 1000, 1000);
   assert.deepEqual(docs.map((d) => d.x1), [20, 500]); // nested (2), tiny (3), unsure (4) dropped; left to right
 });
+
+test('DarFlow adapter: utility bill → bill to pay split water/electricity; voice cash → paid expense', async () => {
+  const { toInboxItem } = await import('../src/adapters/darflow.js');
+  const bill = toInboxItem({ id: 'exp_1', source: 'photo', docKind: 'utility_bill', supplier: 'SRM', docNumber: 'D26', date: '2026-10-06', dueDate: '2026-11-12', total: 870.83, category: 'energy_water_electricity',
+    lines: [{ label: 'Eau domestique 18 m3', amount: 172.44 }, { label: 'Electricité BT 427 kWh', amount: 698.39 }] }, { today: '2026-10-26' });
+  assert.equal(bill.kind, 'purchase');
+  assert.equal(bill.payment_method, null);
+  assert.deepEqual(bill.lines.map((l) => [l.category_code, l.amount_cents, l.vat_rate_bp]), [['WATER', 17244, 700], ['ENERGY', 69839, 1400]]);
+  const gas = toInboxItem({ id: 'exp_2', source: 'voice', total: 120, category: 'gas', paymentMethod: 'cash', lines: [{ label: '3 × bouteille de gaz', amount: 120 }], heard: 'شريت تلاتة القناني' }, { today: '2026-10-26' });
+  assert.equal(gas.kind, 'expense');
+  assert.equal(gas.payment_method, 'CASH');
+  assert.equal(gas.date, '2026-10-26');
+  assert.deepEqual(gas.lines.map((l) => [l.category_code, l.amount_cents]), [['ENERGY', 12000]]);
+  // lines that do not add up to the total (e.g. HT lines) collapse into one TTC line
+  const inv = toInboxItem({ id: 'exp_3', source: 'photo', docKind: 'receipt', supplier: 'Souk', total: 240, category: 'food_beverage', lines: [{ label: 'a', amount: 100 }, { label: 'b', amount: 100 }] });
+  assert.deepEqual(inv.lines.map((l) => [l.label, l.amount_cents, l.category_code]), [['Souk', 24000, 'FOOD']]);
+});

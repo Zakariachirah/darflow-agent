@@ -8,6 +8,8 @@ import * as wa from './whatsapp.js';
 import { transcribeAudio } from './audio.js';
 import { handleGuestMessage } from './agents/guest.js';
 import { readDocuments, readExpenseText, decide } from './agents/expense.js';
+import { exportApproved } from './adapters/darflow.js';
+import path from 'node:path';
 
 const staff = () => String(process.env.STAFF_WHATSAPP || config.managerPhone || '').split(',').map(store.normPhone).filter(Boolean);
 // Demo numbers (DEMO_WHATSAPP) can switch role with "#staff" / "#client", so one phone
@@ -53,9 +55,13 @@ async function handleStaff(msg) {
     store.log('segmentation', { by: from, prompt: segmentation, documents: results.length });
     const many = results.length > 1;
     if (many) await wa.sendText(from, `📄 ${results.length} documents trouvés sur la photo, je les lis un par un.`);
-    for (const [i, { doc, decision }] of results.entries()) {
+    for (const [i, { doc, decision, crop }] of results.entries()) {
       const draftable = decision.action.startsWith('draft');
-      const expense = draftable ? store.addExpense({ source: 'photo', by: from, supplier: doc.supplier, docNumber: doc.doc_number, date: doc.date, dueDate: doc.due_date, total: doc.total_ttc, category: doc.category, lines: doc.lines, anomalies: doc.anomalies, reasons: decision.reasons }) : null;
+      const expense = draftable ? store.addExpense({ source: 'photo', by: from, docKind: doc.doc_kind, supplier: doc.supplier, supplierIce: doc.supplier_ice, docNumber: doc.doc_number, date: doc.date, dueDate: doc.due_date, total: doc.total_ttc, category: doc.category, lines: doc.lines, anomalies: doc.anomalies, reasons: decision.reasons }) : null;
+      if (expense && crop) { // keep the cropped sheet as the voucher DarFlow attaches to the expense
+        const dir = path.join(config.dataDir, 'attachments'); fs.mkdirSync(dir, { recursive: true });
+        expense.attachmentPath = path.join(dir, `${expense.id}.jpg`); fs.copyFileSync(crop, expense.attachmentPath); store.save();
+      }
       if (!draftable) store.log('document_not_booked', { by: from, kind: doc.doc_kind, action: decision.action, supplier: doc.supplier, total: doc.total_ttc });
       await wa.sendText(from, (many ? `Document ${i + 1}/${results.length}\n` : '') + staffSummary({ doc, decision, expense }));
     }
@@ -75,9 +81,15 @@ async function handleStaff(msg) {
   if (['OK', 'OUI', 'WAKHA', 'واخا'].includes(cmd) && pending) {
     const at = new Date().toISOString();
     for (const d of drafts) Object.assign(d, { status: 'approved', approvedAt: at });
+    // Hand each approved expense to DarFlow (inbox file); DarFlow imports it with its own checks.
+    let sent = 0;
+    for (const d of drafts) {
+      try { d.darflowFile = exportApproved(d); sent++; } catch (e) { store.log('darflow_export_failed', { expense: d.id, message: e.message }); }
+    }
     store.save();
     const label = (d) => `${d.supplier || d.lines?.map((l) => l.label).join(', ') || 'Dépense'} — ${money(d.total)}`;
-    return wa.sendText(from, drafts.length === 1 ? `Enregistré ✔ ${label(pending)}.` : `Enregistrés ✔\n${drafts.map((d) => `• ${label(d)}`).join('\n')}`);
+    const toDarFlow = sent === drafts.length ? '\n📥 Envoyé à DarFlow (Dépenses → WhatsApp).' : '';
+    return wa.sendText(from, (drafts.length === 1 ? `Enregistré ✔ ${label(pending)}.` : `Enregistrés ✔\n${drafts.map((d) => `• ${label(d)}`).join('\n')}`) + toDarFlow);
   }
   if (['NON', 'NO', 'LA', 'لا'].includes(cmd) && pending) {
     for (const d of drafts) d.status = 'rejected';

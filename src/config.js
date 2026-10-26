@@ -51,6 +51,8 @@ export const config = {
     ? path.join(ROOT, 'private', 'riad-profile.md')
     : path.join(ROOT, 'examples', 'dar-demo-profile.md')),
   dataDir: env('DATA_DIR', path.join(ROOT, 'data')),
+  // DarFlow reads approved expenses from here (DarFlow default: <home>/darflow-agent/data/darflow-inbox).
+  darflowInbox: env('DARFLOW_INBOX', path.join(env('DATA_DIR', path.join(ROOT, 'data')), 'darflow-inbox')),
   port: Number(env('PORT', '8790')),
   managerPhone: env('MANAGER_WHATSAPP', ''),
   checkinBaseUrl: env('CHECKIN_BASE_URL', 'https://checkin.example/c/'),
