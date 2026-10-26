@@ -135,7 +135,7 @@ Without WhatsApp credentials, everything runs in **simulator mode**: outgoing me
 
 - The public repo contains only the fictional riad *Dar Demo* (`examples/`). The real riad profile, real invoices and all runtime data live in `private/` and `data/`, which are git-ignored.
 - Guests only ever see their own booking. Phone numbers are never sent to the model.
-- Personal data is never sent to `-contributor` models.
+- Personal data is never sent to `-contributor` models. Note: content sent while an account runs on Meta's *free credits* may be used for product improvement, so the hackathon demo uses only the fictional riad and fictional guests. A real riad should switch to paid usage ("Stop using free credits" in billing) before real guest data flows through.
 
 ## Built during the hackathon
 
