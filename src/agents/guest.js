@@ -92,6 +92,13 @@ export function toolsFor(phone) {
         }
         if (date < r.checkin || date >= r.checkout) return { error: 'outside_stay', stay: `${r.checkin} → ${r.checkout}` };
         const total = people * DINNER_PRICE_DH;
+        // One dinner per reservation and night: a repeat or a change updates it, never doubles it.
+        const existing = store.load().requests.find((q) => q.kind === 'dinner' && q.reservation === r.id && q.date === date && q.status !== 'cancelled');
+        if (existing) {
+          const same = existing.time === time && existing.people === people && (existing.dietary || '') === dietary;
+          if (!same) store.updateRequest(existing.id, { time, people, dietary, totalDH: total });
+          return { booked: true, requestId: existing.id, totalDH: total, note: same ? 'Already booked, nothing changed.' : 'Existing dinner updated (not a second dinner). The kitchen is informed.' };
+        }
         const q = store.addRequest({ kind: 'dinner', reservation: r.id, phone, date, time, people, dietary, totalDH: total });
         return { booked: true, requestId: q.id, totalDH: total, note: 'The kitchen is informed.' };
       },

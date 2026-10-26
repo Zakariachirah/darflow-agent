@@ -75,6 +75,14 @@ test('dinner: 3h notice and stay dates are enforced in code, not by the model', 
   const ok = order.run({ date: day(4), time: '20:00', people: 3, dietary: 'vegetarian' });
   assert.equal(ok.booked, true);
   assert.equal(ok.totalDH, 450);
+  // confirming again or changing the time updates the same dinner
+  order.run({ date: day(4), time: '20:00', people: 3, dietary: 'vegetarian' });
+  const moved = order.run({ date: day(4), time: '21:30', people: 2 });
+  assert.equal(moved.requestId, ok.requestId);
+  const dinners = store.load().requests.filter((q) => q.kind === 'dinner' && q.date === day(4));
+  assert.equal(dinners.length, 1);
+  assert.equal(dinners[0].time, '21:30');
+  assert.equal(dinners[0].totalDH, 300);
 });
 
 test('arrival time: format validated, night arrival flagged for the manager', () => {

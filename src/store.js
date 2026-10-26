@@ -58,6 +58,11 @@ export function isHandedOff(phone) {
 }
 
 // ---- requests & handoffs (what the manager sees) ----
+export function updateRequest(id, patch) {
+  const r = load().requests.find((x) => x.id === id);
+  if (r) { Object.assign(r, patch, { updatedAt: new Date().toISOString() }); save(); }
+  return r;
+}
 export function addRequest(data) {
   const r = { id: id('req'), at: new Date().toISOString(), status: 'pending', ...data };
   load().requests.push(r); save(); return r;
