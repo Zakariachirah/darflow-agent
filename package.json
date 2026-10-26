@@ -10,7 +10,7 @@
     "chat": "node src/cli.js chat",
     "doc": "node src/cli.js doc",
     "outreach": "node src/cli.js outreach",
-    "test": "node --test test/"
+    "test": "node --test test/*.test.js"
   },
   "license": "UNLICENSED"
 }

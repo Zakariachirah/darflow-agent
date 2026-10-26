@@ -36,7 +36,7 @@ RIAD PROFILE
 ${riadProfile()}`;
 }
 
-function toolsFor(phone) {
+export function toolsFor(phone) {
   const res = () => store.reservationByPhone(phone);
   return [
     {
