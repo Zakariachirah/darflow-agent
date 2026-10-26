@@ -1,0 +1,16 @@
+{
+  "name": "darflow-agent",
+  "version": "0.1.0",
+  "description": "AI agent for Moroccan riads built on Meta Muse models: WhatsApp guest concierge and expense back-office.",
+  "type": "module",
+  "private": true,
+  "engines": { "node": ">=20" },
+  "scripts": {
+    "start": "node src/server.js",
+    "chat": "node src/cli.js chat",
+    "doc": "node src/cli.js doc",
+    "outreach": "node src/cli.js outreach",
+    "test": "node --test test/"
+  },
+  "license": "UNLICENSED"
+}
