@@ -10,7 +10,15 @@ import { handleGuestMessage } from './agents/guest.js';
 import { readDocument, readExpenseText, decide } from './agents/expense.js';
 
 const staff = () => String(process.env.STAFF_WHATSAPP || config.managerPhone || '').split(',').map(store.normPhone).filter(Boolean);
-export const isStaff = (phone) => staff().includes(store.normPhone(phone));
+// Demo numbers (DEMO_WHATSAPP) can switch role with "#staff" / "#client", so one phone
+// can show both sides of the riad during a demo. Everyone else's role is fixed.
+const demo = () => String(process.env.DEMO_WHATSAPP || '').split(',').map(store.normPhone).filter(Boolean);
+const roleOverride = (phone) => (store.load().roles || {})[store.normPhone(phone)];
+export const isStaff = (phone) => {
+  const o = roleOverride(phone);
+  if (o && demo().includes(store.normPhone(phone))) return o === 'staff';
+  return staff().includes(store.normPhone(phone));
+};
 
 const ACTION_FR = {
   reject: '⛔ À ne PAS enregistrer',
@@ -91,6 +99,13 @@ export async function handleInbound(msg) {
   try {
     await wa.markRead(msg.id);
     store.log('wa_in', { from: store.normPhone(msg.from), type: msg.type, text: msg.text?.slice(0, 200) });
+    const sw = (msg.text || '').trim().toLowerCase();
+    if ((sw === '#staff' || sw === '#client') && demo().includes(store.normPhone(msg.from))) {
+      const s = store.load(); s.roles = { ...(s.roles || {}), [store.normPhone(msg.from)]: sw.slice(1) }; store.save();
+      return wa.sendText(msg.from, sw === '#staff'
+        ? '🔧 Mode employé : envoyez une photo de facture ou une note vocale de dépense. « OK » pour valider.'
+        : '🛎️ Mode client : vous parlez au concierge du riad.');
+    }
     return isStaff(msg.from) ? await handleStaff(msg) : await handleGuest(msg);
   } catch (e) {
     store.log('error', { from: msg.from, message: String(e.message || e) });
