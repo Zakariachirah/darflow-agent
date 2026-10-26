@@ -109,6 +109,8 @@ The run used 19 API calls and about 46k input / 7k output tokens.
 
 Each document takes about 3–8 s and 2.5–3.5k tokens.
 
+**Darija voice expense (real WhatsApp voice note, 5 s).** Muse Voice Transcribe heard « شريت تلاتة القناني ديال الغاز بمية وعشرين كاش » ("I bought three gas bottles for 120, cash"). Muse Spark turned it into a draft: 3 × gas bottle = 120.00 DH, category gas, paid in cash, dated today. The manager replies **OK** and the expense is recorded.
+
 ## Run it
 
 ```bash
