@@ -96,6 +96,7 @@ async function handleStaff(msg) {
     store.save();
     return wa.sendText(from, drafts.length === 1 ? 'Brouillon annulé.' : `${drafts.length} brouillons annulés.`);
   }
+  if (['OK', 'OUI', 'WAKHA', 'واخا', 'NON', 'NO', 'LA', 'لا'].includes(cmd)) return wa.sendText(from, 'Aucun brouillon en attente. Envoyez une photo de facture ou une note vocale.');
   const r = await readExpenseText(text);
   if (!r.is_expense) return wa.sendText(from, `Note reçue : « ${text} ». Ce n'est pas une dépense, je la transmets au gérant.`);
   const doc = { supplier: r.supplier, date: r.date, total_ttc: r.total, lines: r.items.map((i) => ({ label: `${i.qty ?? '?'} × ${i.label}`, amount: i.qty != null && i.unit_price != null ? i.qty * i.unit_price : null })), anomalies: r.missing, arithmetic_ok: true, doc_kind: 'receipt', confidence: 1, category: r.category };

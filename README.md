@@ -32,7 +32,16 @@ Morocco has thousands of riads: guesthouses with 5–10 rooms, usually run by on
 - **A deterministic policy (`decide()`) runs on top of the model's reading.** It flags duplicates, amounts above 1.4× the supplier's average, arithmetic errors, quotes, revenue documents and fakes.
 - **The manager approves the draft** by replying **OK** (or *wakha*) or rejects it with **NON**.
 
-### 3. Manager inbox
+### 3. Straight into DarFlow, the riad's own software
+
+An approved expense doesn't stop at WhatsApp. The agent drops it into **DarFlow's inbox** (contract: [`docs/darflow-inbox.md`](docs/darflow-inbox.md)), and DarFlow shows it under *Dépenses → WhatsApp (n)*. DarFlow imports it through **its own business functions** (cash checks, duplicates, closed accounting months, audit log), so the agent never touches DarFlow's database. Verified end to end on a real bill: photo on WhatsApp → **OK** → DarFlow purchase `ACH-2026-00001`, 870.83 DH, *unpaid, due 12/11*, water and electricity lines with their VAT rates, the SAM-cropped sheet attached.
+
+- **A bill still to pay** (utility bill or supplier invoice with a due date) becomes a DarFlow *purchase* (supplier bill).
+- **Something already paid** (receipt, or "*b 120 cash*" in a voice note) becomes a DarFlow *expense*, with its payment method.
+
+DarFlow itself (a Windows app, closed source) is not part of this repository. Only the small importer was added to it during the hackathon, with tests: its full suite still passes, 248 tests.
+
+### 4. Manager inbox
 
 `http://localhost:8790/manager` shows a small page with handed-off conversations (reply box included), dinner and transfer requests, expense drafts and all conversations.
 
