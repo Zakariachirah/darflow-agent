@@ -27,7 +27,7 @@ Morocco has thousands of riads: guesthouses with 5–10 rooms, usually run by on
 
 ### 2. Expense back-office (staff side of the same WhatsApp number)
 
-- **A staff member sends a photo.** Muse Spark (vision + strict JSON schema) reads it. It classifies the document (supplier invoice, utility bill, receipt, *quote*, *invoice issued by the riad itself*, *specimen/fake*, unreadable), extracts the lines and categories, and **re-checks the arithmetic and VAT**.
+- **A staff member sends a photo.** **SAM 3.1 first finds every sheet of paper in the photo** and crops each one, cutting out the counter and the shadow. One photo can hold several receipts. **Muse Spark** (vision + strict JSON schema) then reads each crop. It classifies the document (supplier invoice, utility bill, receipt, *quote*, *invoice issued by the riad itself*, *specimen/fake*, unreadable), extracts the lines and categories, and **re-checks the arithmetic and VAT**.
 - **A staff member says it in Darija:** "*chrit 3 qnani dyal gaz b 120 cash*". The voice note is transcribed and turned into a structured expense.
 - **A deterministic policy (`decide()`) runs on top of the model's reading.** It flags duplicates, amounts above 1.4× the supplier's average, arithmetic errors, quotes, revenue documents and fakes.
 - **The manager approves the draft** by replying **OK** (or *wakha*) or rejects it with **NON**.
@@ -44,7 +44,8 @@ WhatsApp Cloud API ──webhook (HMAC verified)──▶ server.js ──▶ ro
                ┌──────────── guest number ────────────────────┴──────── staff number ─────────────┐
                ▼                                                                                   ▼
      agents/guest.js                                                                agents/expense.js
-     Muse Spark tool loop (Responses API)                                           Muse Spark vision + json_schema
+     Muse Spark tool loop (Responses API)                                           SAM 3.1 → find + crop each document
+                                                                                    Muse Spark vision + json_schema
      tools: get_reservation · set_arrival_time ·                                    → decide(): duplicate / unusual /
             order_dinner · request_transfer ·                                         arithmetic / quote / revenue / fake
             send_checkin_link · handoff_to_manager                                  → draft → "OK" approves
@@ -72,6 +73,7 @@ No dependencies beyond Node ≥ 20 and `ffmpeg` (for voice notes).
 | Model | Used for |
 |---|---|
 | `muse-spark-1.3` | Guest agent (multi-step tool calling via the Responses API), document reading (vision + `json_schema` strict structured output), Darija/French expense parsing, outreach messages |
+| `sam-3.1` | Finds every document in a staff photo (concept prompt "sheet of paper", with confidence) so each one is cropped and read separately |
 | `muse-voice-transcribe-1.0` | Guest and staff WhatsApp voice notes (Arabic/French/English/Spanish language bias) |
 
 No `-contributor` model variants are used, because guest messages and documents are personal data.
@@ -107,7 +109,9 @@ The run used 19 API calls and about 46k input / 7k output tokens.
 | Invoice the riad issued to a guest | revenue, not an expense |
 | First bill sent a second time | duplicate flagged → needs review |
 
-Each document takes about 3–8 s and 2.5–3.5k tokens.
+Each document takes about 5–9 s. SAM found the document in all 5 photos (confidence 0.95–0.98). Because Muse Spark only receives the cropped sheet, it uses **24 % fewer input tokens** (9.3k vs 12.2k for the 5 photos), with the same 6/6 results.
+
+**Two documents in one photo** (gas specimen + utility bill side by side): SAM returns 2 sheets. They are read separately: the specimen is rejected and the bill becomes a draft.
 
 **Darija voice expense (real WhatsApp voice note, 5 s).** Muse Voice Transcribe heard « شريت تلاتة القناني ديال الغاز بمية وعشرين كاش » ("I bought three gas bottles for 120, cash"). Muse Spark turned it into a draft: 3 × gas bottle = 120.00 DH, category gas, paid in cash, dated today. The manager replies **OK** and the expense is recorded.
 
