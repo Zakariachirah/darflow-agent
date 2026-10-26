@@ -34,6 +34,7 @@ export const config = {
     agentModel: env('AGENT_MODEL', 'muse-spark-1.3'),
     visionModel: env('VISION_MODEL', 'muse-spark-1.3'),
     transcribeModel: env('TRANSCRIBE_MODEL', 'muse-voice-transcribe-1.0'),
+    segmentModel: env('SEGMENT_MODEL', 'sam-3.1'), // '' or 'off' disables document cropping
   },
   whatsapp: {
     token: env('WHATSAPP_TOKEN'),

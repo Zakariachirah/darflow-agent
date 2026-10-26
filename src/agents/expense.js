@@ -4,6 +4,7 @@
 import fs from 'node:fs';
 import path from 'node:path';
 import { structured } from '../meta.js';
+import { findDocuments } from '../segment.js';
 import * as store from '../store.js';
 
 const CATEGORIES = ['energy_water_electricity', 'gas', 'food_beverage', 'cleaning_laundry', 'maintenance_repairs', 'printing_marketing', 'linen_supplies', 'transport', 'salaries', 'taxes_fees', 'other'];
@@ -44,6 +45,18 @@ export async function readDocument(imagePath) {
   const mime = MIME[path.extname(imagePath).toLowerCase()] || 'image/jpeg';
   const b64 = fs.readFileSync(imagePath).toString('base64');
   return readDocumentData(`data:${mime};base64,${b64}`);
+}
+
+/**
+ * Staff photo → every document in it: SAM 3.1 finds and crops each sheet, Muse Spark reads
+ * and checks each crop. Falls back to the whole photo when no document is found.
+ */
+export async function readDocuments(imagePath, opts = {}) {
+  const seg = await findDocuments(imagePath, opts);
+  const pages = seg.crops.length ? seg.crops : [{ path: seg.full, box: null }];
+  const results = [];
+  for (const p of pages) results.push({ ...(await readDocument(p.path)), crop: p.path, box: p.box });
+  return { segmentation: seg.used, results };
 }
 
 export async function readDocumentData(dataUrl) {

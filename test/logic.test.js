@@ -15,6 +15,7 @@ const { decide } = await import('../src/agents/expense.js');
 const { toolsFor } = await import('../src/agents/guest.js');
 const wa = await import('../src/whatsapp.js');
 const { dueOutreach } = await import('../src/outreach.js');
+const { parseBoxes, pickDocuments } = await import('../src/segment.js');
 
 const day = (n) => { const d = new Date(); d.setDate(d.getDate() + n); return d.toISOString().slice(0, 10); };
 const PHONE = '212600000001';
@@ -129,4 +130,17 @@ test('webhook: signature check and payload parsing', () => {
   assert.deepEqual(msgs.map((m) => m.type), ['text', 'audio', 'image']);
   assert.equal(msgs[0].name, 'Ana');
   assert.equal(msgs[1].mediaId, 'm1');
+});
+
+test('SAM output: boxes parsed, small / unsure / nested boxes dropped, reading order kept', () => {
+  const t = '<0f>0<|box;x1=500;y1=100;x2=880;y2=700;w=1000;h=1000;c=0.93|><|mask;x=0;y=0;c=0.93;data=1,!AA|>,'
+    + '1<|box;x1=20;y1=120;x2=450;y2=760;w=1000;h=1000;c=0.97|><|mask;x=0;y=0;data=1,!AA|>,'
+    + '2<|box;x1=40;y1=150;x2=400;y2=700;w=1000;h=1000;c=0.6|><|mask;x=0;y=0;data=1,!AA|>,'
+    + '3<|box;x1=900;y1=900;x2=950;y2=950;w=1000;h=1000;c=0.9|><|mask;x=0;y=0;data=1,!AA|>,'
+    + '4<|box;x1=100;y1=800;x2=900;y2=990;w=1000;h=1000;c=0.2|><|mask;x=0;y=0;data=1,!AA|>';
+  const boxes = parseBoxes(t);
+  assert.equal(boxes.length, 5);
+  assert.deepEqual(boxes[0], { x1: 500, y1: 100, x2: 880, y2: 700, w: 1000, h: 1000, c: 0.93 });
+  const docs = pickDocuments(boxes, 1000, 1000);
+  assert.deepEqual(docs.map((d) => d.x1), [20, 500]); // nested (2), tiny (3), unsure (4) dropped; left to right
 });

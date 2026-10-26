@@ -10,7 +10,7 @@ import path from 'node:path';
 
 process.env.DATA_DIR = fs.mkdtempSync(path.join(os.tmpdir(), 'dfa-eval-docs-'));
 const store = await import('../src/store.js');
-const { readDocument, decide } = await import('../src/agents/expense.js');
+const { readDocuments, decide } = await import('../src/agents/expense.js');
 const { usageTotals } = await import('../src/meta.js');
 
 const dir = path.resolve(process.argv[2] || 'private/invoices');
@@ -25,7 +25,8 @@ const book = (doc) => store.addExpense({ supplier: doc.supplier, docNumber: doc.
 for (const [file, exp] of Object.entries(expected)) {
   total++;
   const t0 = Date.now();
-  const { doc, decision } = await readDocument(path.join(dir, file));
+  const { segmentation, results } = await readDocuments(path.join(dir, file));
+  const { doc, decision, box } = results[0];
   const fails = [];
   if (exp.kind && doc.doc_kind !== exp.kind) fails.push(`type ${doc.doc_kind} ≠ ${exp.kind}`);
   if (exp.action && decision.action !== exp.action) fails.push(`action ${decision.action} ≠ ${exp.action}`);
@@ -34,6 +35,7 @@ for (const [file, exp] of Object.entries(expected)) {
   if (fails.length === 0) passed++;
   if (decision.action.startsWith('draft')) { book(doc); firstBooked ??= { file, doc }; }
   console.log(`${fails.length ? '❌' : '✅'} ${file} (${((Date.now() - t0) / 1000).toFixed(1)} s)
+   SAM: ${segmentation} → ${results.length} document(s)${box ? ` [${box.x1},${box.y1}→${box.x2},${box.y2} c=${box.c.toFixed(2)}]` : ''}
    ${doc.doc_kind} · ${doc.supplier} · ${doc.total_ttc} ${doc.currency} · ${decision.action}
    lignes: ${doc.lines.map((l) => `${l.label} ${l.amount} [${l.category}]`).join(' | ') || '—'}
    anomalies: ${doc.anomalies.join(' | ') || '—'}${fails.length ? `\n   échec: ${fails.join(' ; ')}` : ''}\n`);

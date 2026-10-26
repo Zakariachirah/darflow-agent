@@ -7,7 +7,7 @@ import * as store from './store.js';
 import * as wa from './whatsapp.js';
 import { transcribeAudio } from './audio.js';
 import { handleGuestMessage } from './agents/guest.js';
-import { readDocument, readExpenseText, decide } from './agents/expense.js';
+import { readDocuments, readExpenseText, decide } from './agents/expense.js';
 
 const staff = () => String(process.env.STAFF_WHATSAPP || config.managerPhone || '').split(',').map(store.normPhone).filter(Boolean);
 // Demo numbers (DEMO_WHATSAPP) can switch role with "#staff" / "#client", so one phone
@@ -49,11 +49,17 @@ async function handleStaff(msg) {
   const from = msg.from;
   if (msg.type === 'image' || msg.type === 'document') {
     const media = msg.localPath ? { path: msg.localPath } : await wa.downloadMedia(msg.mediaId);
-    const { doc, decision } = await readDocument(media.path);
-    const draftable = decision.action.startsWith('draft');
-    const expense = draftable ? store.addExpense({ source: 'photo', by: from, supplier: doc.supplier, docNumber: doc.doc_number, date: doc.date, dueDate: doc.due_date, total: doc.total_ttc, category: doc.category, lines: doc.lines, anomalies: doc.anomalies, reasons: decision.reasons }) : null;
-    if (!draftable) store.log('document_not_booked', { by: from, kind: doc.doc_kind, action: decision.action, supplier: doc.supplier, total: doc.total_ttc });
-    return wa.sendText(from, staffSummary({ doc, decision, expense }));
+    const { segmentation, results } = await readDocuments(media.path);
+    store.log('segmentation', { by: from, prompt: segmentation, documents: results.length });
+    const many = results.length > 1;
+    if (many) await wa.sendText(from, `📄 ${results.length} documents trouvés sur la photo, je les lis un par un.`);
+    for (const [i, { doc, decision }] of results.entries()) {
+      const draftable = decision.action.startsWith('draft');
+      const expense = draftable ? store.addExpense({ source: 'photo', by: from, supplier: doc.supplier, docNumber: doc.doc_number, date: doc.date, dueDate: doc.due_date, total: doc.total_ttc, category: doc.category, lines: doc.lines, anomalies: doc.anomalies, reasons: decision.reasons }) : null;
+      if (!draftable) store.log('document_not_booked', { by: from, kind: doc.doc_kind, action: decision.action, supplier: doc.supplier, total: doc.total_ttc });
+      await wa.sendText(from, (many ? `Document ${i + 1}/${results.length}\n` : '') + staffSummary({ doc, decision, expense }));
+    }
+    return null;
   }
   let text = msg.text || '';
   if (msg.type === 'audio') {
@@ -62,15 +68,21 @@ async function handleStaff(msg) {
     if (!text) return wa.sendText(from, "Je n'ai pas compris la note vocale. Pouvez-vous la renvoyer ?");
   }
   const cmd = text.trim().toUpperCase();
-  const pending = store.load().expenses.filter((e) => e.status === 'draft' && store.normPhone(e.by) === store.normPhone(from)).at(-1);
+  // OK / NON answers every draft this person is currently looking at (one photo can hold several).
+  const recent = Date.now() - 2 * 3600e3;
+  const drafts = store.load().expenses.filter((e) => e.status === 'draft' && store.normPhone(e.by) === store.normPhone(from) && Date.parse(e.at || e.createdAt || 0) >= recent);
+  const pending = drafts.at(-1);
   if (['OK', 'OUI', 'WAKHA', 'واخا'].includes(cmd) && pending) {
-    pending.status = 'approved'; pending.approvedAt = new Date().toISOString(); store.save();
-    const what = pending.supplier || pending.lines?.map((l) => l.label).join(', ') || 'Dépense';
-    return wa.sendText(from, `Enregistré ✔ ${what} — ${money(pending.total)}.`);
+    const at = new Date().toISOString();
+    for (const d of drafts) Object.assign(d, { status: 'approved', approvedAt: at });
+    store.save();
+    const label = (d) => `${d.supplier || d.lines?.map((l) => l.label).join(', ') || 'Dépense'} — ${money(d.total)}`;
+    return wa.sendText(from, drafts.length === 1 ? `Enregistré ✔ ${label(pending)}.` : `Enregistrés ✔\n${drafts.map((d) => `• ${label(d)}`).join('\n')}`);
   }
   if (['NON', 'NO', 'LA', 'لا'].includes(cmd) && pending) {
-    pending.status = 'rejected'; store.save();
-    return wa.sendText(from, 'Brouillon annulé.');
+    for (const d of drafts) d.status = 'rejected';
+    store.save();
+    return wa.sendText(from, drafts.length === 1 ? 'Brouillon annulé.' : `${drafts.length} brouillons annulés.`);
   }
   const r = await readExpenseText(text);
   if (!r.is_expense) return wa.sendText(from, `Note reçue : « ${text} ». Ce n'est pas une dépense, je la transmets au gérant.`);

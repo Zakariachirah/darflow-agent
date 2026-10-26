@@ -2,7 +2,7 @@
 import fs from 'node:fs';
 import { config, assertMetaKey } from './config.js';
 
-async function post(pathname, body, { timeoutMs = 90_000 } = {}) {
+export async function post(pathname, body, { timeoutMs = 90_000 } = {}) {
   assertMetaKey();
   const ctrl = new AbortController();
   const t = setTimeout(() => ctrl.abort(), timeoutMs);
