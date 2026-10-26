@@ -55,6 +55,34 @@ export async function readDocumentData(dataUrl) {
   return { doc, decision: decide(doc) };
 }
 
+const VOICE_SCHEMA = {
+  type: 'object', additionalProperties: false,
+  required: ['is_expense', 'supplier', 'items', 'total', 'payment_method', 'date', 'category', 'missing'],
+  properties: {
+    is_expense: { type: 'boolean' },
+    supplier: { type: ['string', 'null'] },
+    items: { type: 'array', items: { type: 'object', additionalProperties: false, required: ['label', 'qty', 'unit_price'], properties: { label: { type: 'string' }, qty: { type: ['number', 'null'] }, unit_price: { type: ['number', 'null'] } } } },
+    total: { type: ['number', 'null'], description: 'total in MAD as stated or computed from items' },
+    payment_method: { type: ['string', 'null'], enum: ['cash', 'card', 'transfer', null] },
+    date: { type: ['string', 'null'], description: 'YYYY-MM-DD; today if the speaker says today' },
+    category: { type: 'string', enum: CATEGORIES },
+    missing: { type: 'array', items: { type: 'string' }, description: 'what the manager must still give, in French' },
+  },
+};
+
+/** A staff voice note or text like "J'ai acheté 2 bouteilles de gaz à 60 DH chez Al Waha" → draft expense. */
+export async function readExpenseText(text) {
+  const today = new Date().toISOString().slice(0, 10);
+  const r = await structured({
+    instructions: `Today is ${today}. A riad employee in Morocco describes a purchase, often in Darija (Moroccan Arabic), French or a mix. Amounts are in dirhams (DH, MAD, "dirham", "drahem"; "rial" may mean 1/20 dirham in Darija: convert only if clearly said). Extract the expense. Never invent prices: if the total cannot be known, set null and list it in missing.`,
+    content: [{ type: 'input_text', text }], schema: VOICE_SCHEMA, name: 'spoken_expense',
+  });
+  if (r.total == null && r.items.every((i) => i.qty != null && i.unit_price != null) && r.items.length) {
+    r.total = Math.round(r.items.reduce((s, i) => s + i.qty * i.unit_price, 0) * 100) / 100;
+  }
+  return r;
+}
+
 /** Deterministic policy on top of the model's reading: what the riad should do with it. */
 export function decide(doc) {
   const reasons = [];

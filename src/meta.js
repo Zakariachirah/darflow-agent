@@ -97,18 +97,23 @@ export async function runAgent({ instructions, input, tools = [], model = config
   return { text: '', trace, error: 'max_steps' };
 }
 
-/** Speech to text for a WAV file (mono 16-bit, 16 or 24 kHz). */
+/**
+ * Speech to text (Muse Voice Transcribe) for a WAV file: mono, 16-bit PCM, 16 or 24 kHz.
+ * Multipart with two parts: `request` (JSON settings) and `audio` (the WAV).
+ */
 export async function transcribeWav(wavPath, { languageBias = [], keywords = [] } = {}) {
   assertMetaKey();
+  const settings = { model: config.meta.transcribeModel, audioEncoding: 'WAV', mode: 'PUSH_TO_TALK' };
+  if (languageBias.length) settings.languageBias = languageBias;
+  if (keywords.length) settings.keywords = keywords;
   const form = new FormData();
-  form.append('file', new Blob([fs.readFileSync(wavPath)], { type: 'audio/wav' }), 'audio.wav');
-  form.append('model', config.meta.transcribeModel);
-  for (const l of languageBias) form.append('languageBias', l);
-  for (const k of keywords) form.append('keywords', k);
+  form.append('request', new Blob([JSON.stringify(settings)], { type: 'application/json' }));
+  form.append('audio', new Blob([fs.readFileSync(wavPath)], { type: 'audio/wav' }), 'audio.wav');
   const res = await fetch(config.meta.baseUrl + '/asr/transcribe', {
-    method: 'POST', headers: { Authorization: `Bearer ${config.meta.apiKey}` }, body: form,
+    method: 'POST', headers: { Authorization: `Bearer ${config.meta.apiKey}`, Accept: 'application/json' }, body: form,
   });
   const json = await res.json().catch(() => ({}));
   if (!res.ok) throw new Error(`Transcribe ${res.status}: ${json?.error?.message || JSON.stringify(json).slice(0, 300)}`);
-  return json.text ?? json.transcript ?? (json.turns || []).map((t) => t.text).join(' ');
+  usageTotals.audioMs = (usageTotals.audioMs || 0) + (json.audioDurationMs || 0);
+  return { text: (json.transcript || '').trim(), durationMs: json.audioDurationMs || 0 };
 }

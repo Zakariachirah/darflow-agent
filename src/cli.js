@@ -30,6 +30,19 @@ async function main() {
       console.log(reply === null ? '(held for the manager)' : `🤖 ${reply}`);
     }
     rl.close();
+  } else if (cmd === 'in') {
+    // Simulate an inbound WhatsApp message through the full router:
+    //   in <from> <text...> | in <from> --image <path> | in <from> --audio <path>
+    const { handleInbound } = await import('./router.js');
+    const [from, flag, file, ...rest] = args;
+    const msg = flag === '--image' ? { type: 'image', localPath: file }
+      : flag === '--audio' ? { type: 'audio', localPath: file }
+      : { type: 'text', text: [flag, file, ...rest].filter(Boolean).join(' ') };
+    await handleInbound({ id: `cli-${Date.now()}`, from, ...msg });
+  } else if (cmd === 'outreach') {
+    const { runOutreach } = await import('./outreach.js');
+    const r = await runOutreach({ dryRun: args[0] === '--dry' });
+    console.log(r.length ? r.map((x) => `→ ${x.guest} (${x.lang}): ${x.text}`).join('\n\n') : 'Nothing due today.');
   } else if (cmd === 'doc') {
     const { readDocument } = await import('./agents/expense.js');
     console.log(JSON.stringify(await readDocument(args[0]), null, 2));
