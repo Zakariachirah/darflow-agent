@@ -37,7 +37,9 @@ function staffSummary({ doc, decision, expense }) {
   if (doc.date) lines.push(`Date : ${doc.date}${doc.due_date ? ` · à payer avant le ${doc.due_date}` : ''}`);
   if (doc.lines?.length) lines.push(...doc.lines.slice(0, 6).map((l) => `• ${l.label} : ${money(l.amount)}`));
   lines.push(`Total TTC : ${money(doc.total_ttc ?? doc.total)}`);
-  const notes = [...(decision.reasons || []), ...(doc.anomalies || [])];
+  // The policy line already states quote / revenue / fake: drop the model's restatement of it.
+  const restates = { track_quote: /devis|quote/i, not_an_expense_revenue: /émise par le riad|recette|revenue/i, reject: /fictif|sp[ée]cimen|fake/i }[decision.action];
+  const notes = [...(decision.reasons || []), ...(doc.anomalies || []).filter((a) => !(restates && restates.test(a) && !/\d/.test(a)))];
   if (notes.length) lines.push('', 'À noter :', ...notes.slice(0, 5).map((a) => `– ${a}`));
   if (expense) lines.push('', 'Répondez « OK » pour l\'enregistrer dans DarFlow, ou « NON » pour l\'annuler.');
   return lines.join('\n');
@@ -63,7 +65,8 @@ async function handleStaff(msg) {
   const pending = store.load().expenses.filter((e) => e.status === 'draft' && store.normPhone(e.by) === store.normPhone(from)).at(-1);
   if (['OK', 'OUI', 'WAKHA', 'واخا'].includes(cmd) && pending) {
     pending.status = 'approved'; pending.approvedAt = new Date().toISOString(); store.save();
-    return wa.sendText(from, `Enregistré ✔ ${pending.supplier || 'Dépense'} — ${money(pending.total)}.`);
+    const what = pending.supplier || pending.lines?.map((l) => l.label).join(', ') || 'Dépense';
+    return wa.sendText(from, `Enregistré ✔ ${what} — ${money(pending.total)}.`);
   }
   if (['NON', 'NO', 'LA', 'لا'].includes(cmd) && pending) {
     pending.status = 'rejected'; store.save();
