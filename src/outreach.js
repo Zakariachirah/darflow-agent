@@ -13,7 +13,7 @@ const SCHEMA = { type: 'object', additionalProperties: false, required: ['messag
 async function compose(r, link, isReminder) {
   const { message } = await structured({
     model: config.meta.agentModel,
-    instructions: `Write ONE short WhatsApp message from a small riad in Safi, Morocco, to a guest, in the guest's language (ISO code given). Warm, 2-3 sentences, at most one emoji. ${isReminder ? 'This is a gentle reminder: they arrive tomorrow.' : 'They arrive soon.'} Ask them to complete the online check-in (2 minutes, passport/ID) with the link, and to reply with their arrival time. Include the link exactly as given. Sign as "the team" of the riad, no riad name. Do not mention prices or anything else.`,
+    instructions: `Write ONE short WhatsApp message from a small riad in Safi, Morocco, to a guest, in the guest's language (ISO code given). Warm but polite hospitality register (formal address: vous / usted / Sie / Lei), 2-3 sentences, at most one emoji. ${isReminder ? 'This is a gentle reminder: they arrive tomorrow.' : 'They arrive soon.'} Ask them to complete the online check-in (2 minutes, passport/ID) with the link, and to reply with their arrival time. Include the link exactly as given. Sign as "the team" of the riad, no riad name. Do not mention prices or anything else.`,
     content: [{ type: 'input_text', text: JSON.stringify({ lang: r.lang || 'en', firstName: (r.guestName || '').split(' ')[0], checkin: r.checkin, link }) }],
     schema: SCHEMA, name: 'outreach', effort: 'minimal',
   });
