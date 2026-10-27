@@ -35,7 +35,7 @@ async function load(){
  cv.innerHTML=Object.entries(d.conversations).map(([p,m])=>'<div class="item"><b>+'+esc(p)+'</b>'+m.slice(-6).map(x=>'<div class="msg"><span class="g">'+esc(x.role)+' :</span> '+esc(x.text)+'</div>').join('')+'</div>').join('')||'<p class="g">Aucune.</p>';
 }
 async function reply(phone,id){const t=document.getElementById('r'+id).value.trim();if(!t)return;
- await fetch('/manager/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,text:t,release:true})});load();}
+ await fetch('/manager/reply',{method:'POST',headers:{'Content-Type':'application/json'},body:JSON.stringify({phone,text:t,release:true})});document.getElementById('r'+id).value='';document.activeElement.blur();load();}
 load();setInterval(load,4000);
 </script></body></html>`;
 }
