@@ -4,6 +4,9 @@
 
 Meta Global AI Developer Hackathon 2026 · Indie track
 
+> **Pre-existing:** *DarFlow*, the author's riad management software (closed source, not in this repo).
+> **Built this week:** everything in this repository — the WhatsApp guest concierge, the expense agent (SAM 3.1 + Muse Spark + Muse Voice Transcribe), the manager inbox, the evaluations — plus the small importer added to DarFlow ([`darflow-importer/`](darflow-importer/)).
+
 ---
 
 ## The problem
@@ -39,7 +42,7 @@ An approved expense doesn't stop at WhatsApp. The agent drops it into **DarFlow'
 - **A bill still to pay** (utility bill or supplier invoice with a due date) becomes a DarFlow *purchase* (supplier bill).
 - **Something already paid** (receipt, or "*b 120 cash*" in a voice note) becomes a DarFlow *expense*, with its payment method.
 
-DarFlow itself (a Windows app, closed source) is not part of this repository. Only the small importer was added to it during the hackathon, with tests: its full suite still passes, 248 tests.
+DarFlow itself (a Windows app, closed source) is not part of this repository. Only the small importer was added to it during the hackathon; its code and tests are copied in [`darflow-importer/`](darflow-importer/) so it can be reviewed. DarFlow's full suite still passes (248 tests).
 
 ### 4. Manager inbox
 
@@ -89,7 +92,7 @@ No `-contributor` model variants are used, because guest messages and documents 
 
 ## Results (measured on 26 Oct 2026)
 
-**Guardrail unit tests:** `npm test` reports **9/9**, with no API calls.
+**Guardrail unit tests:** `npm test` reports **11/11**, with no API calls.
 
 **Live guest-agent evaluation:** `node eval/guest-scenarios.js` reports **9/9**. Each scenario checks what the agent *did* (tool calls, records written), not only what it said.
 
@@ -124,6 +127,19 @@ Each document takes about 5–9 s. SAM found the document in all 5 photos (confi
 
 **Darija voice expense (real WhatsApp voice note, 5 s).** Muse Voice Transcribe heard « شريت تلاتة القناني ديال الغاز بمية وعشرين كاش » ("I bought three gas bottles for 120, cash"). Muse Spark turned it into a draft: 3 × gas bottle = 120.00 DH, category gas, paid in cash, dated today. The manager replies **OK** and the expense is recorded.
 
+## Try it in 2 minutes (no WhatsApp account needed)
+
+You only need Node ≥ 20 and a Meta Model API key.
+
+```bash
+git clone https://github.com/Zakariachirah/darflow-agent && cd darflow-agent
+cp .env.example .env              # put your MODEL_API_KEY in it
+node src/cli.js seed              # fictional riad "Dar Demo" + fictional bookings
+node src/cli.js chat              # you are guest R-1001: ask for dinner, parking, a discount…
+```
+
+Try *"Hola, ¿podemos cenar mañana a las 20h? Somos 2, uno vegetariano"*, then *"Can I get 50% off?"* (handed off to the manager), then send an empty line to quit. Run `npm test` for the guardrails (no API call).
+
 ## Run it
 
 ```bash
@@ -148,4 +164,6 @@ Without WhatsApp credentials, everything runs in **simulator mode**: outgoing me
 
 ## Built during the hackathon
 
-Everything in this repository was written from 26 Oct 2026 onwards; see the commit history. The author's existing riad software, *DarFlow* (desktop app), is **not** included. A later step will plug this agent into it through an adapter.
+- **Pre-existing:** DarFlow, the author's riad software (desktop app). It is not in this repository.
+- **Built this week:** everything in this repository, and the importer added to DarFlow ([`darflow-importer/`](darflow-importer/)).
+- **Timeline, for transparency:** this repository was created on 26 Oct 2026 at 16:26 UTC, around the kickoff session (12:00 PM ET), and the first version was pushed between 16:26 and 17:14 UTC. The FAQ later clarified that the building period starts after the kickoff session, so this is stated here for the organizers to judge. Everything after that first push — SAM segmentation, live WhatsApp, the DarFlow connector, the evaluations, the demo video — is in the later commits; see the commit history.
