@@ -151,6 +151,7 @@ test('DarFlow adapter: utility bill → bill to pay split water/electricity; voi
     lines: [{ label: 'Eau domestique 18 m3', amount: 172.44 }, { label: 'Electricité BT 427 kWh', amount: 698.39 }] }, { today: '2026-10-26' });
   assert.equal(bill.kind, 'purchase');
   assert.equal(bill.payment_method, null);
+  assert.equal(toInboxItem({ id: 'x', source: 'photo', docKind: 'utility_bill', supplier: 'SRM', dueDate: '2026-10-13', total: 509.8, category: 'energy_water_electricity', lines: [] }, { today: '2026-10-27' }).kind, 'purchase', 'overdue bill is still a bill to pay');
   assert.deepEqual(bill.lines.map((l) => [l.category_code, l.amount_cents, l.vat_rate_bp]), [['WATER', 17244, 700], ['ENERGY', 69839, 1400]]);
   const gas = toInboxItem({ id: 'exp_2', source: 'voice', total: 120, category: 'gas', paymentMethod: 'cash', lines: [{ label: '3 × bouteille de gaz', amount: 120 }], heard: 'شريت تلاتة القناني' }, { today: '2026-10-26' });
   assert.equal(gas.kind, 'expense');

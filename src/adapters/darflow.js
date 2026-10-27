@@ -34,7 +34,8 @@ export function toInboxItem(e, { attachment = null, today = new Date().toISOStri
   });
   const payment = PAY[e.paymentMethod] || null;
   // A supplier bill with a due date and no payment yet is a bill to pay (DarFlow "purchase"), not a paid expense.
-  const unpaidBill = e.source === 'photo' && ['utility_bill', 'supplier_invoice'].includes(e.docKind) && !payment && (!e.dueDate || e.dueDate >= today);
+  // (an overdue bill is still a bill to pay: the due date never turns it into a cash expense)
+  const unpaidBill = e.source === 'photo' && ['utility_bill', 'supplier_invoice'].includes(e.docKind) && !payment;
   return {
     source: 'darflow-agent', version: 1, id: e.id,
     kind: unpaidBill ? 'purchase' : 'expense',
