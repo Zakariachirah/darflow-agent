@@ -18,10 +18,11 @@ export function toWav(inputPath) {
 
 /** Transcribe any audio file. Arabic (incl. Moroccan Darija), French, English and Spanish are biased by default. */
 export async function transcribeAudio(filePath, { languageBias = ['Arabic', 'French', 'English', 'Spanish'], keywords = [] } = {}) {
-  const wav = filePath.toLowerCase().endsWith('.wav') ? filePath : await toWav(filePath);
+  // always re-encode: a .wav at 44.1/48 kHz or in stereo is refused by the API
+  const wav = await toWav(filePath);
   try {
     return await transcribeWav(wav, { languageBias, keywords });
   } finally {
-    if (wav !== filePath) fs.rm(wav, { force: true }, () => {});
+    fs.rm(wav, { force: true }, () => {});
   }
 }
