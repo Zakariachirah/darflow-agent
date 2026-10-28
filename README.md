@@ -4,6 +4,8 @@
 
 Meta Global AI Developer Hackathon 2026 · Indie track
 
+▶️ **Demo video (3 min):** https://youtu.be/yGGIxEHW_hI
+
 > **Pre-existing:** *DarFlow*, the author's riad management software (closed source, not in this repo).
 > **Built this week:** everything in this repository — the WhatsApp guest concierge, the expense agent (SAM 3.1 + Muse Spark + Muse Voice Transcribe), the manager inbox, the evaluations — plus the small importer added to DarFlow ([`darflow-importer/`](darflow-importer/)).
 
