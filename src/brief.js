@@ -155,7 +155,7 @@ Below are today's facts, each with an id. Decide what matters most and write the
 - items: one per fact worth mentioning, most important first, each citing exactly one fact id in "fact".
   urgency "urgent" = needs action before noon (a guest waiting for an answer, a bill due today or overdue, an arrival today without online check-in, a late arrival with no one to welcome);
   "today" = happens today; "info" = good to know.
-- line: rewrite the fact in at most 15 words. Use ONLY information from that fact; keep its numbers, names, times and amounts exactly; never add anything.`,
+- line: rewrite the fact as one natural French sentence with normal punctuation, at most 15 words (e.g. "Giulia arrive aujourd'hui (Suite Patio, 2 pers.) : check-in pas fait, heure inconnue."). Translate anything not in French. Use ONLY information from that fact; keep its numbers, names, times and amounts exactly; never add anything.`,
     content: [{ type: 'input_text', text: JSON.stringify(facts.map(({ id, kind, text }) => ({ id, kind, text }))) }],
     schema: SCHEMA, name: 'morning_brief', effort: 'low',
   });
