@@ -3,18 +3,19 @@
 //   node src/cli.js chat [phone]          talk to the guest agent as that guest
 //   node src/cli.js say <phone> <text>    one message, prints the reply
 //   node src/cli.js doc <image>           read a document photo (expense agent)
+//   node src/cli.js brief [--dry]         build (and send) the manager's morning brief
 import readline from 'node:readline';
 import { handleGuestMessage } from './agents/guest.js';
 import { usageTotals } from './meta.js';
 import * as store from './store.js';
-import { demoSeed } from '../examples/demo-seed.js';
+import { demoSeed, demoDay } from '../examples/demo-seed.js';
 
 const [, , cmd, ...args] = process.argv;
 const showTool = (name, a, r) => console.log(`   ⚙ ${name}(${JSON.stringify(a)}) → ${JSON.stringify(r)}`);
 
 async function main() {
   if (cmd === 'seed') {
-    store.reset(demoSeed(args[0]));
+    store.reset(demoDay(demoSeed(args[0])));
     console.log('Demo data reset:', store.load().reservations.map((r) => `${r.id} ${r.guestName} ${r.checkin}`).join(' | '));
   } else if (cmd === 'say') {
     const [phone, ...words] = args;
@@ -43,11 +44,15 @@ async function main() {
     const { runOutreach } = await import('./outreach.js');
     const r = await runOutreach({ dryRun: args[0] === '--dry' });
     console.log(r.length ? r.map((x) => `→ ${x.guest} (${x.lang}): ${x.text}`).join('\n\n') : 'Nothing due today.');
+  } else if (cmd === 'brief') {
+    const { runBrief } = await import('./brief.js');
+    const r = await runBrief({ dryRun: args[0] === '--dry' });
+    console.log(r.text + (r.fixes.length ? `\n\n[checked by code: ${r.fixes.join(' · ')}]` : '\n\n[checked by code: every line matches its fact]'));
   } else if (cmd === 'doc') {
     const { readDocument } = await import('./agents/expense.js');
     console.log(JSON.stringify(await readDocument(args[0]), null, 2));
   } else {
-    console.log('Commands: seed | chat | say | doc');
+    console.log('Commands: seed | chat | say | in | outreach | brief | doc');
   }
   if (usageTotals.calls) console.log(`\n[Meta API] ${usageTotals.calls} calls, ${usageTotals.input} in / ${usageTotals.output} out tokens`);
 }

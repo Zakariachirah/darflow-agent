@@ -5,6 +5,7 @@ import * as wa from './whatsapp.js';
 import * as store from './store.js';
 import { handleInbound } from './router.js';
 import { runOutreach } from './outreach.js';
+import { runBrief } from './brief.js';
 import { managerPage } from './manager-page.js';
 
 function readBody(req, limit = 25 * 1024 * 1024) {
@@ -44,6 +45,7 @@ const server = http.createServer(async (req, res) => {
       return json(res, 200, { sent: wa.outbox.filter((o) => o.to === store.normPhone(b.from)).slice(-3) });
     }
     if (url.pathname === '/sim/outreach' && req.method === 'POST') return json(res, 200, await runOutreach());
+    if (url.pathname === '/sim/brief' && req.method === 'POST') return json(res, 200, await runBrief());
     if (url.pathname === '/manager/reply' && req.method === 'POST') {
       const b = JSON.parse((await readBody(req)).toString('utf8'));
       await wa.sendText(b.phone, b.text);
@@ -68,9 +70,13 @@ server.listen(config.port, '127.0.0.1', () => {
 process.on('unhandledRejection', (e) => { console.error('⚠️ ', e?.message || e); store.log('error', { message: String(e?.message || e) }); });
 process.on('uncaughtException', (e) => { console.error('⚠️ ', e?.message || e); store.log('error', { message: String(e?.message || e) }); });
 
-// Daily pre-arrival outreach at 10:00 local time (checks every 15 minutes).
+// Daily morning brief to the manager at 08:00 and pre-arrival outreach at 10:00, local time
+// (checked every 15 minutes; the brief is sent once per day).
 setInterval(async () => {
   const now = new Date();
+  if (now.getHours() === 8 && store.load().brief?.date !== now.toISOString().slice(0, 10)) {
+    try { await runBrief(); console.log('morning brief sent'); } catch (e) { console.error('brief', e.message); }
+  }
   if (now.getHours() === 10 && now.getMinutes() < 15) {
     try { const r = await runOutreach(); if (r.length) console.log('outreach sent:', r.length); } catch (e) { console.error('outreach', e.message); }
   }

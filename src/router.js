@@ -9,6 +9,7 @@ import { transcribeAudio } from './audio.js';
 import { handleGuestMessage } from './agents/guest.js';
 import { readDocuments, readExpenseText, decide } from './agents/expense.js';
 import { exportApproved } from './adapters/darflow.js';
+import { handleBriefReply } from './brief.js';
 import path from 'node:path';
 
 const staff = () => String(process.env.STAFF_WHATSAPP || config.managerPhone || '').split(',').map(store.normPhone).filter(Boolean);
@@ -134,6 +135,8 @@ export async function handleInbound(msg) {
         ? '🔧 Mode employé : envoyez une photo de facture ou une note vocale de dépense. « OK » pour valider.'
         : '🛎️ Mode client : vous parlez au concierge du riad.');
     }
+    // The manager answering this morning's brief ("1", "1 2", "tout") → the agent carries out those actions.
+    if (msg.type === 'text') { const r = await handleBriefReply(msg.from, msg.text); if (r !== null) return r; }
     return isStaff(msg.from) ? await handleStaff(msg) : await handleGuest(msg);
   } catch (e) {
     store.log('error', { from: msg.from, message: String(e.message || e) });
