@@ -46,7 +46,37 @@ An approved expense doesn't stop at WhatsApp. The agent drops it into **DarFlow'
 
 DarFlow itself (a Windows app, closed source) is not part of this repository. Only the small importer was added to it during the hackathon; its code and tests are copied in [`darflow-importer/`](darflow-importer/) so it can be reviewed. DarFlow's full suite still passes (248 tests).
 
-### 4. Manager inbox
+### 4. Morning brief: the agent acts on its own
+
+Every morning at 08:00, without anyone asking, the agent reviews the riad's day and sends the manager **one WhatsApp message**: what is urgent, what happens today, what is good to know, and what it can do right now. The manager answers with a number and the agent does it.
+
+```
+☀️ Brief du 01/11
+2 arrivées aujourd'hui et dîner ce soir, réponds vite à Thomas qui attend depuis 9 h !
+
+🔴 Urgent
+• Thomas attend ta réponse depuis 9 h : prix d'une nuit sup (Double).
+• Giulia arrive aujourd'hui (Suite Patio, 2 pers.) : check-in pas fait, heure inconnue.
+📅 Aujourd'hui
+• Dîner ce soir à 20:00 : 3 pers. (Claire), 1 enfant, sans gluten.
+ℹ️ À savoir
+• Facture Régie eau & électricité 509,80 DH à payer dans 2 jours (03/11).
+
+Je peux m'en occuper — réponds avec le(s) numéro(s), ou « tout » :
+1. Écrire à Giulia (it) : check-in en ligne + heure d'arrivée
+2. Écrire à Claire (fr) : heure d'arrivée
+```
+
+The manager replies **« tout »**, and each guest gets a message in their own language (*« Gentile Giulia, … »*). Real output from `node src/cli.js seed && node src/cli.js brief` on the fictional demo day (3 Muse Spark calls in total).
+
+**Verifiable by design** ([`src/brief.js`](src/brief.js)):
+- **Facts from code.** The facts (arrivals, check-in status, dinners, guests waiting for the manager, bills due, drafts) are collected by code from the store.
+- **Model ranks, code checks.** Muse Spark only ranks and phrases them, and each line must cite a fact id. Code then checks every line: an unknown fact is dropped, a number that isn't in the fact replaces the line with the fact's own text, and an urgent fact the model left out (a waiting guest, a bill due today) is added back.
+- **Actions from code.** The proposed actions are built by code, never by the model. They run only after the manager's reply, only for the manager's number, and only once.
+
+All of this is covered by `test/brief.test.js` (no API call). One limit on live WhatsApp: a message the business starts more than 24 h after the manager's last message needs an approved template. In production the brief would use one, like the check-in reminder template.
+
+### 5. Manager inbox
 
 `http://localhost:8790/manager` shows a small page with handed-off conversations (reply box included), dinner and transfer requests, expense drafts and all conversations.
 
@@ -68,7 +98,7 @@ WhatsApp Cloud API ──webhook (HMAC verified)──▶ server.js ──▶ ro
                                          │
                        store.js (reservations, conversations, requests, handoffs, expenses, event log)
                                          │
-                       outreach.js (daily 10:00) · manager-page.js
+                       brief.js (daily 08:00, manager) · outreach.js (daily 10:00, guests) · manager-page.js
 ```
 
 **Design principle: the model reads and talks; the code enforces.** The rules that matter for a business are checked in code, not left to the prompt:
@@ -94,7 +124,7 @@ No `-contributor` model variants are used, because guest messages and documents 
 
 ## Results (measured on 26 Oct 2026)
 
-**Guardrail unit tests:** `npm test` reports **11/11**, with no API calls.
+**Guardrail unit tests:** `npm test` reports **16/16**, with no API calls.
 
 **Live guest-agent evaluation:** `node eval/guest-scenarios.js` reports **9/9**. Each scenario checks what the agent *did* (tool calls, records written), not only what it said.
 
@@ -152,6 +182,7 @@ node src/cli.js chat              # talk to the concierge as guest R-1001
 node src/cli.js doc invoice.jpg   # read a document photo
 node src/cli.js in 212600000000 --audio note.ogg   # simulate an inbound voice note
 node src/cli.js outreach --dry    # preview pre-arrival messages
+node src/cli.js brief --dry       # the manager's morning brief for the demo day
 npm start                         # webhook + manager inbox on :8790
 npm test                          # guardrail tests
 ```

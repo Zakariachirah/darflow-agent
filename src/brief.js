@@ -166,8 +166,8 @@ const NUDGE_SCHEMA = { type: 'object', additionalProperties: false, required: ['
 async function composeNudge(r, a) {
   const { message } = await structured({
     model: config.meta.agentModel,
-    instructions: `Write ONE short WhatsApp message from a small riad in Morocco to a guest, in the guest's language (ISO code given), formal address (vous / usted / Sie / Lei), 2 sentences, at most one emoji. They arrive on the date given. ${a.checkin ? 'Ask them to complete the online check-in (2 minutes) with the link, included exactly as given. ' : ''}${a.arrivalTime ? 'Ask them what time they expect to arrive, so someone can welcome them. ' : ''}Sign as "the team". Nothing else.`,
-    content: [{ type: 'input_text', text: JSON.stringify({ lang: r.lang || 'en', firstName: first(r.guestName), checkin: r.checkin, link: a.checkin ? config.checkinBaseUrl + (r.checkinToken || r.id) : undefined }) }],
+    instructions: `Write ONE short WhatsApp message from a small riad in Morocco to a guest, in the guest's language (ISO code given), formal address (vous / usted / Sie / Lei), 2 sentences, at most one emoji. They arrive on the date given (say "today" / "tomorrow" in their language when so). ${a.checkin ? 'Ask them to complete the online check-in (2 minutes) with the link, included exactly as given. ' : ''}${a.arrivalTime ? 'Ask them what time they expect to arrive, so someone can welcome them. ' : ''}Sign as "the team". Nothing else.`,
+    content: [{ type: 'input_text', text: JSON.stringify({ lang: r.lang || 'en', firstName: first(r.guestName), checkin: r.checkin, arrives: r.checkin === iso(new Date()) ? 'today' : r.checkin === addDays(iso(new Date()), 1) ? 'tomorrow' : r.checkin, link: a.checkin ? config.checkinBaseUrl + (r.checkinToken || r.id) : undefined }) }],
     schema: NUDGE_SCHEMA, name: 'nudge', effort: 'minimal',
   });
   return message.trim();
